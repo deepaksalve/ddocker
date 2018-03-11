@@ -1,0 +1,29 @@
+<% if (typeof message !== 'undefined') { %>
+  <h3><%= message %></h3>
+<% } else if (typeof data !== 'undefined') { %>
+  <h1>Setup your docker environment.</h1>
+  <form action="/setup" method="post">
+    <input type="text" name="username" />
+    <h3>Select the OS</h3>
+    <select name="os">
+      <% for (var key in data.os) { %>
+        <option value="<%= key %>"><%=data.os[key]%></option>
+      <% } %>
+    </select>
+    <h3>Select the Web server</h3>
+    <select name="webServer">
+      <% for (var key in data.webServer) { %>
+        <option value="<%= key %>"><%=data.webServer[key]%></option>
+      <% } %>
+    </select>
+    <h3>Select the database</h3>
+    <select name="database">
+      <% for (var key in data.database) { %>
+        <option value="<%= key %>"><%=data.database[key]%></option>
+      <% } %>
+    </select>
+    <br>
+    <hr />
+    <input type="submit" value="Submit">
+  </form>
+<% } %>

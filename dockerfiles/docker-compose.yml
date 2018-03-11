@@ -1,0 +1,8 @@
+version: '3.2'
+services:
+  os:
+    build: ./os
+  webserver:
+    build: ./webserver
+  db:
+    build: ./db
