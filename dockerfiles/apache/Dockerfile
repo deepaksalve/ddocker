@@ -1,1 +1,1 @@
-FROM apache:latest
+FROM httpd:latest
