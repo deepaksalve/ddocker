@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const favicon = require('serve-favicon');
 const child_process = require('child_process');
 const mkdirp = require('mkdirp');
+const yaml = require('write-yaml');
 const ejs = require('ejs');
 const fs = require('fs');
 const _ = require('lodash')
@@ -26,27 +27,30 @@ const TYPES = {
   webServer: 'webserver'
 };
 
-const setupDocker = (type, dock, dest, cb) => {
-  fs.readFile(`${dockerfiles}/${dock}/Dockerfile`, (err, config, buffer) => {
-    if (err) return cb(err);
+const createUserDockerConfig = (user, config, cb) => {
+  try {
+    const _config = require(`${dockerfiles}/docker-compose.js`);
 
-    mkdirp(`${destDockerfileDir}/${dest}/${type}`, (err) => {
+    _config.services = config;
+
+    mkdirp(`${destDockerfileDir}/${user}`, (err) => {
       if (err) return cb(err);
 
-      fs.writeFile(`${destDockerfileDir}/${dest}/${type}/Dockerfile`, config, err => cb(err));
+      return yaml(`${destDockerfileDir}/${user}/docker-compose.yml`, _config, cb);
     });
-  });
-};
+  } catch (err) {
+    return cb(err);
+  }
+}
 
-const setupDockerComposer = (dest, cb) => {
-  fs.readFile(`${dockerfiles}/docker-compose.yml`, (err, config, buffer) => {
-    if (err) return cb(err);
-
-    mkdirp(`${destDockerfileDir}/${dest}`, (err) => {
-      if (err) return cb(err);
-
-      fs.writeFile(`${destDockerfileDir}/${dest}/docker-compose.yml`, config, err => cb(err));
-    });
+const runDockerService = (dest) => {
+  return child_process.exec(`docker-compose -f ${destDockerfileDir}/${dest}/docker-compose.yml build`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`exec error: ${error}`);
+      return;
+    }
+    console.log(`stdout: ${stdout}`);
+    console.log(`stderr: ${stderr}`);
   });
 };
 
@@ -54,34 +58,31 @@ app.get('/*', (req, res) => res.render('index', { data }));
 
 app.post('/setup', (req, res) => {
   const { os, database, webServer, username } = req.body;
+  const userConfig = {
+    os: {
+      build: `../../dockerfiles/${os}`
+    },
+    db: {
+      build: `../../dockerfiles/${database}`
+    },
+    webserver: {
+      build: `../../dockerfiles/${webServer}`
+    },
+    'node-server': {
+      build: '../../dockerfiles/node-server',
+      ports: ['8123:8123']
+    }
+  };
 
-  return setupDocker(TYPES.os, os, username, (err) => {
-    if (err) return res.send(err);
+  return createUserDockerConfig(username, userConfig, (err) => {
+    if (err) {
+      return res.send('Something went wrong....');
+    }
 
-    return setupDocker(TYPES.database, database, username, (err) => {
-      if (err) return res.send(err);
+    runDockerService(username);
 
-      return setupDocker(TYPES.webServer, webServer, username, (err) => {
-        if (err) return res.send(err);
-
-        return setupDockerComposer(username, (err) => {
-          if (err) return res.send(err);
-
-          return res.render('index', { message: 'Soon.....' });
-        });
-      });
-    });
-  });
-
-  // child_process.exec('cat ./dockerfiles/MySQL/dockerfile.sample', (error, stdout, stderr) => {
-  // 	if (error) {
-  // 		console.error(`exec error: ${error}`);
-  // 		return;
-  // 	}
-  // 	console.log(`stdout: ${stdout}`);
-  // 	console.log(`stderr: ${stderr}`);
-  // 	res.render('index', { message: 'Soon...' });
-  // });
+    return res.render('index', { message: userConfig });
+  })
 });
 
 app.listen(3000, (err) => {
