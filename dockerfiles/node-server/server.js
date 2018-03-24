@@ -1,12 +1,16 @@
 const express = require('express');
+const ejs = require('ejs');
 
 const app = express();
 
+app.set('views', `${__dirname}/views`);
+app.set('view engine', 'ejs');
+
 app.get('*', (req, res) => {
-  res.send('Hello from container.');
+  res.render('index');
 });
 
-const server = app.listen(8123, () => {
+const server = app.listen(8124, () => {
   const host = server.address().address
   const port = server.address().port
 
