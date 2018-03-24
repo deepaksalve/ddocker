@@ -2,7 +2,7 @@
   <h3><%= message %></h3>
 <% } else if (typeof data !== 'undefined') { %>
   <h1>Setup your docker environment.</h1>
-  <form action="/setup" method="post">
+  <form action="/setup" method="post" enctype="multipart/form-data">
     <input type="text" required name="username" placeholder="Please enter your email*"/>
     <h3>Select the OS</h3>
     <select name="os">
@@ -10,18 +10,8 @@
         <option value="<%= key %>"><%=data.os[key]%></option>
       <% } %>
     </select>
-    <h3>Select the Web server</h3>
-    <select name="webServer">
-      <% for (var key in data.webServer) { %>
-        <option value="<%= key %>"><%=data.webServer[key]%></option>
-      <% } %>
-    </select>
-    <h3>Select the database</h3>
-    <select name="database">
-      <% for (var key in data.database) { %>
-        <option value="<%= key %>"><%=data.database[key]%></option>
-      <% } %>
-    </select>
+    <h3>Upload source code</h3>
+    <input type="file" name="source-code" required>
     <br>
     <hr />
     <input type="submit" value="Submit">

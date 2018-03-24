@@ -7,7 +7,9 @@ const mkdirp = require('mkdirp');
 const yaml = require('write-yaml');
 const ejs = require('ejs');
 const fs = require('fs');
-const _ = require('lodash')
+const path = require('path');
+const unzip = require('unzip');
+const Busboy = require('busboy');
 
 const app = express();
 
@@ -21,11 +23,7 @@ app.set('view engine', 'ejs');
 const data = require('./config');
 const dockerfiles = `${__dirname}/dockerfiles`;
 const destDockerfileDir = `${__dirname}/users`;
-const TYPES = {
-  os: 'os',
-  database: 'db',
-  webServer: 'webserver'
-};
+const TYPES = ['os', 'username'];
 
 const createUserDockerConfig = (user, config, cb) => {
   try {
@@ -44,12 +42,20 @@ const createUserDockerConfig = (user, config, cb) => {
 }
 
 const runDockerService = (dest) => {
-  return child_process.exec(`docker-compose -f ${destDockerfileDir}/${dest}/docker-compose.yml build`, (error, stdout, stderr) => {
+  console.log('\n\n *************************** ');
+  console.log('\tCreating docker container.');
+  console.log(' *************************** \n\n');
+
+  const docFile = `${destDockerfileDir}/${dest}/docker-compose.yml`
+  const cmd = `docker-compose -f ${docFile} build && docker-compose -f ${docFile} up`
+  return child_process.exec(cmd, (error, stdout, stderr) => {
     if (error) {
+      console.log('Failed to create docker container.');
       console.error(`exec error: ${error}`);
       return;
     }
 
+    console.log('Created docker container.');
     console.log(`stdout: ${stdout}`);
     console.log(`stderr: ${stderr}`);
   });
@@ -58,31 +64,61 @@ const runDockerService = (dest) => {
 app.get('/*', (req, res) => res.render('index', { data }));
 
 app.post('/setup', (req, res) => {
-  const { os, database, webServer, username } = req.body;
-  const userConfig = {
-    os: {
-      build: `../../dockerfiles/${os}`
-    },
-    db: {
-      build: `../../dockerfiles/${database}`
-    },
-    webserver: {
-      build: `../../dockerfiles/${webServer}`
-    },
-    'node-server': {
-      build: '../../dockerfiles/node-server',
-      ports: ['8123:8123']
-    }
-  };
+  const busboy = new Busboy({ headers: req.headers });
+  const userConfig = {};
+  const base64data = [];
 
-  return createUserDockerConfig(username, userConfig, (err) => {
-    if (err) {
-      return res.send('Something went wrong....');
-    }
+  busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+    let buffer = '';
 
-    res.render('index', { message: 'We will soon send you an email along with your container.' });
-    runDockerService(res, username);
-  })
+    file.setEncoding('base64');
+    file.on('data', buf => (buffer += buf)).on('end', () => base64data.push(buffer));
+  });
+
+  busboy.on('field', (fieldname, val, fieldnameTruncated, valTruncated, encoding, mimetype) => {
+    if (TYPES.indexOf(fieldname) >= 0) {
+      userConfig[fieldname] = val;
+    }
+  });
+
+  busboy.on('finish', () => {
+    console.log('Done parsing form!');
+    const { username, os } = userConfig;
+    mkdirp(`${destDockerfileDir}/${username}`, (err) => {
+      if (err) return cb(err);
+
+      const sourceZip = path.join(destDockerfileDir, username, 'sourcecode.zip');
+
+      fs.writeFile(sourceZip, base64data, 'base64', (err) => {
+        if (err) {
+          res.writeHead(500, { Connection: 'close', Location: '/' });
+          res.end(err);
+        } else {
+          fs.createReadStream(sourceZip).pipe(unzip.Extract({ path: path.join(destDockerfileDir, username) }));
+
+          const _userConfig = {
+            os: {
+              build: `../../dockerfiles/${os}`
+            },
+            'node-server': {
+              build: path.join(destDockerfileDir, username, 'node-server'),
+              ports: ['8123:8123']
+            }
+          };
+          return createUserDockerConfig(username, _userConfig, (err) => {
+            if (err) {
+              return res.send('Something went wrong....');
+            }
+
+            res.render('index', { message: 'We will soon send you an email along with your container.' });
+            runDockerService(username);
+          });
+        }
+      });
+    });
+  });
+
+  req.pipe(busboy);
 });
 
 app.listen(3000, (err) => {
