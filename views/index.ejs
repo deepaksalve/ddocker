@@ -3,7 +3,7 @@
 <% } else if (typeof data !== 'undefined') { %>
   <h1>Setup your docker environment.</h1>
   <form action="/setup" method="post">
-    <input type="text" name="username" />
+    <input type="text" required name="username" placeholder="Please enter your email*"/>
     <h3>Select the OS</h3>
     <select name="os">
       <% for (var key in data.os) { %>

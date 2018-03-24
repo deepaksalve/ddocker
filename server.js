@@ -49,6 +49,7 @@ const runDockerService = (dest) => {
       console.error(`exec error: ${error}`);
       return;
     }
+
     console.log(`stdout: ${stdout}`);
     console.log(`stderr: ${stderr}`);
   });
@@ -79,9 +80,8 @@ app.post('/setup', (req, res) => {
       return res.send('Something went wrong....');
     }
 
-    runDockerService(username);
-
-    return res.render('index', { message: userConfig });
+    res.render('index', { message: 'We will soon send you an email along with your container.' });
+    runDockerService(res, username);
   })
 });
 
