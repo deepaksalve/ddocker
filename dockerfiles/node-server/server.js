@@ -10,7 +10,7 @@ app.get('*', (req, res) => {
   res.render('index');
 });
 
-const server = app.listen(8124, () => {
+const server = app.listen(8123, () => {
   const host = server.address().address
   const port = server.address().port
 
